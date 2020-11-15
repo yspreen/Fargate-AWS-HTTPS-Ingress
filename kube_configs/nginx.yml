@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxy-nginx-conf
+data:
+  nginx.conf: |-
+    user  nginx;
+    worker_processes  1;
+
+    pid        /var/run/nginx.pid;
+
+    events {
+        worker_connections  1024;
+    }
+
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        sendfile        on;
+        keepalive_timeout  65;
+
+        index  index.html index.htm;
+
+        server {
+            listen 81;
+
+            client_max_body_size 50M;
+
+            location / {
+                alias   /var/www/;
+            }
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: index-html-conf
+data:
+  index.html: |-
+    Hi.<br>– yspreen
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      volumes:
+        - name: nginx-proxy-config
+          configMap:
+            name: proxy-nginx-conf
+        - name: index-html-config
+          configMap:
+            name: index-html-conf
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          resources:
+            requests:
+              memory: "25Mi"
+              cpu: "25m"
+          ports:
+            - containerPort: 81
+          volumeMounts:
+            - name: nginx-proxy-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: index-html-config
+              mountPath: /var/www/index.html
+              subPath: index.html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/target-type: ip
+  name: "nginx-service"
+  namespace: "default"
+spec:
+  ports:
+    - port: 82
+      targetPort: 81
+      protocol: TCP
+  type: NodePort
+  selector:
+    app: nginx
