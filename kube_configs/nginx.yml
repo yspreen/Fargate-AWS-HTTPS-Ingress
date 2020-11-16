@@ -40,7 +40,7 @@ metadata:
   name: index-html-conf
 data:
   index.html: |-
-    Hi.<br>– yspreen
+    <meta charset="UTF-8">Hi.<br>– yspreen
 ---
 apiVersion: apps/v1
 kind: Deployment
